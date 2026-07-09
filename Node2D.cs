@@ -9,12 +9,13 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
     int [,] gridData;
     bool [,] discovered;
     bool [,] flagged;
-
+    int [,] minecount;
     public override void _Ready()
     {
         gridData = new int [gridSize, gridSize];
         discovered = new bool [gridSize, gridSize];
         flagged = new bool [gridSize, gridSize];
+        minecount = new int [gridSize, gridSize];
 
         gridData [1,1] = 9;
         gridData [3,2] = 9;
@@ -58,68 +59,69 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         }
     }
 
-    // public void _neighborMineCounter()
-    // {
-    //     int a = playerY;
-    //     int b = playerX;
-    //     int counter = 0;
-    //     if(a > 0 && b > 0)
-    //     {
-    //         if(gridData[a-1,b-1] == 9)
-    //         {
-    //             counter += 1;
-    //         }
-    //     }
-    //     if(a > 0)
-    //     {
-    //         if(gridData[a-1,b] == 9)
-    //         {
-    //             counter +=1;
-    //         }
-    //     }
-    //      if(b > 0)
-    //     {   
-    //         if(gridData[a,b-1] == 9)
-    //         {
-    //             counter += 1;
-    //         }
-    //     }
-    //     if(a > 0 && b < gridSize -1)
-    //     {
-    //         if(gridData[a-1,b+1] == 9)
-    //         {
-    //             counter += 1;
-    //         }
-    //     }
-    //     if(b < gridSize - 1)
-    //     {
-    //         if(gridData[a,b+1] == 9)
-    //         {
-    //             counter +=1;
-    //         }
-    //     }
-    //     if(a < gridSize -1 && b < gridSize -1)
-    //     {
-    //         if(gridData[a+1,b+1] == 9)
-    //         {
-    //             counter += 1;
-    //         }
-    //     }
-    //     if(a < gridSize - 1)
-    //     {
-    //         if(gridData[a+1,b] == 9)
-    //         {
-    //             counter += 1;
-    //         }
-    //     }
-    //     if(a < gridSize -1 && b > 0)
-    //     {
-    //         if(gridData[a+1,b-1] == 9)
-    //         {
-    //             counter +=1;
-    //         }
-    //     }
-    // }
+    public int _neighborMineCounter()
+    {
+        int a = playerY;
+        int b = playerX;
+        int counter = 0;
+        if(a > 0 && b > 0)
+        {
+            if(gridData[a-1,b-1] == 9)
+            {
+                counter += 1;
+            }
+        }
+        if(a > 0)
+        {
+            if(gridData[a-1,b] == 9)
+            {
+                counter +=1;
+            }
+        }
+         if(b > 0)
+        {   
+            if(gridData[a,b-1] == 9)
+            {
+                counter += 1;
+            }
+        }
+        if(a > 0 && b < gridSize -1)
+        {
+            if(gridData[a-1,b+1] == 9)
+            {
+                counter += 1;
+            }
+        }
+        if(b < gridSize - 1)
+        {
+            if(gridData[a,b+1] == 9)
+            {
+                counter +=1;
+            }
+        }
+        if(a < gridSize -1 && b < gridSize -1)
+        {
+            if(gridData[a+1,b+1] == 9)
+            {
+                counter += 1;
+            }
+        }
+        if(a < gridSize - 1)
+        {
+            if(gridData[a+1,b] == 9)
+            {
+                counter += 1;
+            }
+        }
+        if(a < gridSize -1 && b > 0)
+        {
+            if(gridData[a+1,b-1] == 9)
+            {
+                counter +=1;
+            }
+        }
+        return counter;
+    }
     
     public void _flagSquare()
     {
@@ -138,7 +140,7 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         }
         else
         {
-            // _neighborMineCounter();
+            minecount[playerY, playerX] = _neighborMineCounter();
             DrawGrid();
         }
         
@@ -153,7 +155,11 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
             string line = "";
             for(int x = 0; x< gridSize; x++)
             {
-                if(flagged [y,x] == true && discovered[y,x] == false)
+                if( x == playerX && y == playerY)
+                {
+                    line += "[ = ] ";
+                }
+                else if(flagged [y,x] == true && discovered[y,x] == false)
                 {
                     line += "[ F ] ";
                 }
@@ -161,17 +167,13 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
                 {
                     line += "[ * ] ";
                 }
-                else if( x == playerX && y == playerY)
-                {
-                    line += "[ = ] ";
-                }
                 else if(discovered[y,x] == false)
                 {
                     line += "[ # ] ";
                 }
                 else 
                 {
-                    line += "[   ] ";
+                    line += "[ "+minecount[y,x]+" ] ";
                 }
             }
             GD.Print(line);
