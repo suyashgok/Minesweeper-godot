@@ -6,10 +6,15 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
     int playerX = 2;
     int playerY = 2;
     int gridSize = 5;
+    int totalMines = 3;
+    bool gameStarted = false;
+    bool gameOver = false;
+    bool gameWon = false;
     int [,] gridData;
+    int [,] minecount;
     bool [,] discovered;
     bool [,] flagged;
-    int [,] minecount;
+    
     public override void _Ready()
     {
         gridData = new int [gridSize, gridSize];
@@ -17,8 +22,6 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         flagged = new bool [gridSize, gridSize];
         minecount = new int [gridSize, gridSize];
 
-        gridData [1,1] = 9;
-        gridData [3,2] = 9;
         GD.Print("Beware of mines!");
         DrawGrid();
     }
@@ -51,18 +54,17 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         }
         if(Input.IsActionJustPressed("ui_accept"))
         {
-            _revealSquare();
+            _revealSquare(playerY, playerX);
+            DrawGrid();
         }
         else if(Input.IsActionJustPressed("flag_square"))
         {
-            _flagSquare();
+            _flagSquare(playerY, playerX);
         }
     }
 
-    public int _neighborMineCounter()
+    public int _neighborMineCounter(int a, int b)
     {
-        int a = playerY;
-        int b = playerX;
         int counter = 0;
         if(a > 0 && b > 0)
         {
@@ -123,25 +125,94 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         return counter;
     }
     
-    public void _flagSquare()
+    public void _flagSquare(int y, int x)
     {
-        flagged [playerY, playerX] = true;
+        flagged [y, x] = !flagged[y,x];
         DrawGrid();
     }
 
-    public void _revealSquare()
+    public void _placeMines(int firstY, int firstX)
     {
-        discovered [playerY, playerX] = true;
-        if(gridData [playerY, playerX] == 9)
+        Random rng = new Random();
+        int minesPlaced = 0;
+
+        while(minesPlaced < totalMines)
         {
-            DrawGrid();
-            GD.Print("BOOM! You set off the mine! \n Game Over!");
+            int randY = rng.Next(0, gridSize);
+            int randX = rng.Next(0, gridSize);
+
+            if(gridData[randY, randX] != 9 && !(randY == firstY && randX == firstX))
+            {
+                gridData[randY, randX] = 9;
+                minesPlaced++;
+            }
+        }
+    }
+
+    public void _revealSquare(int y, int x)
+    {
+        if(!gameStarted)
+        {
+            _placeMines(y,x);
+            gameStarted = true;
+        }
+
+        discovered [y, x] = true;
+        
+        if(gridData [y, x] == 9)
+        {
+            gameOver = true;
             SetProcess(false);
         }
         else
         {
-            minecount[playerY, playerX] = _neighborMineCounter();
-            DrawGrid();
+            minecount[y, x] = _neighborMineCounter(y, x);
+            
+            if(minecount[y,x] == 0)
+            {
+                if(y > 0 && x > 0 && !discovered[y-1, x-1] && gridData[y-1, x-1] != 9)
+                    _revealSquare(y-1, x-1);
+
+                if(y > 0 && !discovered[y-1, x] && gridData[y - 1, x] != 9)
+                    _revealSquare(y-1, x);
+
+                if(y > 0 && x < gridSize-1 && !discovered[y - 1, x + 1] && gridData[y - 1, x + 1] != 9)
+                    _revealSquare(y-1, x+1);
+
+                if(x > 0 && !discovered[y, x-1] && gridData[y, x-1] != 9)
+                    _revealSquare(y, x-1);
+
+                if(x < gridSize-1 && !discovered[y, x+1] && gridData[y, x+1] != 9)
+                    _revealSquare(y, x+1);
+
+                if(y < gridSize-1 && x > 0 && !discovered[y+1, x-1] && gridData[y+1, x-1] != 9)
+                    _revealSquare(y+1, x-1);
+
+                if(y < gridSize-1 && !discovered[y+1, x] && gridData[y+1, x] != 9)
+                    _revealSquare(y+1, x);
+
+                if(y < gridSize-1 && x < gridSize-1 && !discovered[y+1, x+1] && gridData[y+1, x+1] != 9)
+                    _revealSquare(y+1, x+1);     
+            }
+            
+            int tilesRevealed = 0;
+            
+            for(int cy = 0; cy < gridSize; cy++)
+            {
+                for(int cx = 0; cx < gridSize; cx++)
+                {
+                    if(discovered[cy,cx] == true)
+                    {
+                        tilesRevealed++;
+                    }
+                }
+            }
+
+            if(tilesRevealed == gridSize * gridSize - totalMines)
+            {
+                gameWon = true;
+                SetProcess(false);
+            }
         }
         
     }
@@ -155,15 +226,15 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
             string line = "";
             for(int x = 0; x< gridSize; x++)
             {
-                if( x == playerX && y == playerY)
+                if( x == playerX && y == playerY && gameOver == false && gameWon == false)
                 {
                     line += "[ = ] ";
                 }
-                else if(flagged [y,x] == true && discovered[y,x] == false)
+                else if(flagged [y,x] == true && discovered[y,x] == false && gameOver == false && gameWon == false)
                 {
                     line += "[ F ] ";
                 }
-                else if(discovered [y,x] == true && gridData [y,x] == 9)
+                else if((discovered [y,x] == true && gridData [y,x] == 9) || (gameOver == true && gridData[y,x] == 9) || (gameWon == true && gridData[y,x] == 9))
                 {
                     line += "[ * ] ";
                 }
@@ -173,10 +244,22 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
                 }
                 else 
                 {
-                    line += "[ "+minecount[y,x]+" ] ";
+                    if(minecount[y,x] == 0)
+                        line += "[   ] ";
+                    else    
+                        line += "[ "+minecount[y,x]+" ] ";
                 }
             }
             GD.Print(line);
+            
         }
+        if(gameOver)
+            {
+              GD.Print("BOOM! You set off the mine! \n Game Over!");
+            }
+        if(gameWon)
+            {
+                GD.Print("You Won!! All Mines Are Cleared!");       
+            }
     }
 }
