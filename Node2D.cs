@@ -5,15 +5,30 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
 {
     int playerX = 2;
     int playerY = 2;
-    int gridSize = 5;
-    int totalMines = 3;
+    int gridSize = 7;
+    int totalMines = 6;
+    
     bool gameStarted = false;
     bool gameOver = false;
     bool gameWon = false;
+    
     int [,] gridData;
     int [,] minecount;
+    
     bool [,] discovered;
     bool [,] flagged;
+
+    Label resultLabel;
+    Button restartButton;
+    Button menuButton;
+    Control endButtons;
+
+    TextureButton[,] buttons;  
+
+        Texture2D undiscoveredTexture;
+        Texture2D flagTexture;
+        Texture2D mineTexture;
+        Texture2D [] numberTextures;  
     
     public override void _Ready()
     {
@@ -22,13 +37,72 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         flagged = new bool [gridSize, gridSize];
         minecount = new int [gridSize, gridSize];
 
+        undiscoveredTexture = GD.Load<Texture2D>("res://Assets/Tiles/Undiscovered_tile.png");
+        flagTexture = GD.Load<Texture2D>("res://Assets/Tiles/Flag.png");
+        mineTexture = GD.Load<Texture2D>("res://Assets/Tiles/Mine.png");
+
+        resultLabel = GetNode<Label>("%ResultLabel");
+        resultLabel.Text = "";
+        
+        endButtons = GetNode<Control>("%EndButtons");
+        restartButton = GetNode<Button>("%Restart");
+        menuButton = GetNode<Button>("%ReturnToMenu");
+
+        restartButton.Pressed += _onRestartPressed;
+        menuButton.Pressed += _onMenuPressed;
+        numberTextures = new Texture2D[9];
+        numberTextures[0] = GD.Load<Texture2D>("res://Assets/Tiles/Discovered_tile_with_no_neighbor_mine.png");
+
+        for(int i = 1; i <= 8; i++)
+        {
+            numberTextures[i] = GD.Load<Texture2D>($"res://Assets/Tiles/Discovered_tile_with_{i}_neighbor_mine.png");
+        }
+
         GD.Print("Beware of mines!");
         DrawGrid();
+
+        GridContainer grid = GetNode<GridContainer>("%GridContainer");
+        buttons = new TextureButton[gridSize, gridSize];
+
+        for(int y = 0; y < gridSize; y++)
+        {
+            for(int x = 0; x < gridSize; x++)
+            {
+                TextureButton btn = new TextureButton();
+                btn.CustomMinimumSize = new Vector2(100, 100);
+                btn.StretchMode = TextureButton.StretchModeEnum.Scale;
+                
+                btn.SetMeta("grid_y", y);
+                btn.SetMeta("grid_x", x);
+
+                btn.Pressed += () => _onTileLeftClicked(btn);
+                btn.GuiInput += (InputEvent @event) =>
+                {
+                    if(@event is InputEventMouseButton mouseEvent && mouseEvent.ButtonIndex == MouseButton.Right && mouseEvent.Pressed)
+                    {
+                        _onTileRightClicked(btn);
+                    }
+                };
+                grid.AddChild(btn);
+                buttons[y, x] = btn;
+            }
+        }
+        RefreshGrid();
+    }
+
+    private void _onRestartPressed()
+    {
+        GetTree().ReloadCurrentScene();
+    }
+
+    private void _onMenuPressed()
+    {
+        GetTree().ChangeSceneToFile("res://Scenes/main_menu.tscn");
     }
 
     public override void _Process(double delta)
     {
-        if(Input.IsActionJustPressed("ui_right"))
+       /* if(Input.IsActionJustPressed("ui_right"))
         {
             if(playerX < gridSize - 1)
                 playerX += 1;
@@ -60,7 +134,7 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         else if(Input.IsActionJustPressed("flag_square"))
         {
             _flagSquare(playerY, playerX);
-        }
+        }*/
     }
 
     public int _neighborMineCounter(int a, int b)
@@ -129,8 +203,20 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
     {
         flagged [y, x] = !flagged[y,x];
         DrawGrid();
+        RefreshGrid();
     }
 
+    private void _onTileRightClicked(TextureButton btn)
+    {
+        if(gameOver || gameWon)
+            return;
+
+        int y = (int)btn.GetMeta("grid_y");
+        int x = (int)btn.GetMeta("grid_x");
+
+        _flagSquare(y, x);
+    }
+   
     public void _placeMines(int firstY, int firstX)
     {
         Random rng = new Random();
@@ -140,8 +226,10 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         {
             int randY = rng.Next(0, gridSize);
             int randX = rng.Next(0, gridSize);
-
-            if(gridData[randY, randX] != 9 && !(randY == firstY && randX == firstX))
+            
+            bool nearFirstClick = Math.Abs(randY - firstY) <= 1 && Math.Abs(randX - firstX) <= 1;
+            
+            if(gridData[randY, randX] != 9 && !nearFirstClick)
             {
                 gridData[randY, randX] = 9;
                 minesPlaced++;
@@ -217,6 +305,32 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
         
     }
 
+     private void _onTileLeftClicked(TextureButton btn)
+    {
+        if(gameOver || gameWon)
+            return; 
+
+        int y = (int)btn.GetMeta("grid_y");
+        int x = (int)btn.GetMeta("grid_x");
+
+        _revealSquare(y, x);
+        DrawGrid();
+        RefreshGrid();
+
+        if(gameOver)
+        {
+            resultLabel.Text = "You set off the mine! \n Game Over!";
+            endButtons.Visible = true;
+        }
+        else if(gameWon)
+        {
+            resultLabel.Text = "You Won!! All Mines Are Cleared!";
+            endButtons.Visible = true;
+        }
+    }
+
+    
+
     void DrawGrid()
     {
         GD.Print("\n" + "--- New Frame ---");
@@ -262,4 +376,29 @@ public partial class Node2D : Godot.Node2D  //initialized a partial class connec
                 GD.Print("You Won!! All Mines Are Cleared!");       
             }
     }
+    
+    
+    void RefreshGrid()
+    {
+        for(int y = 0; y < gridSize; y++)
+        {
+            for(int x = 0; x < gridSize; x++)
+            {
+                TextureButton btn = buttons[y,x];
+
+                if(gameOver && gridData[y,x] ==9)
+                    btn.TextureNormal = mineTexture;
+
+                else if(flagged[y,x] == true && discovered[y,x] == false)
+                    btn.TextureNormal = flagTexture;
+
+                else if(discovered[y,x] ==false)
+                    btn.TextureNormal = undiscoveredTexture;
+
+                else
+                    btn.TextureNormal = numberTextures[minecount[y,x]];
+            }
+        }
+    }
 }
+

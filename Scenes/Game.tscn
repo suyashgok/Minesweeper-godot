@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cd4354254bbli"]
+
+[ext_resource type="Script" uid="uid://desseccmo6ct7" path="res://Node2D.cs" id="1_wg1v2"]
+
+[node name="Game" type="Node2D" unique_id=1621414430]
+script = ExtResource("1_wg1v2")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1245323953]
+
+[node name="GridContainer" type="GridContainer" parent="CanvasLayer" unique_id=1744153993]
+offset_left = 1.0
+offset_right = 41.0
+offset_bottom = 40.0
+columns = 5
